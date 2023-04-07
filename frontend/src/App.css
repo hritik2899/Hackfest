@@ -32,7 +32,13 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
+}
+
+
+#package_suggestion>div:hover {
+  background: rgb(98, 97, 97);
 }

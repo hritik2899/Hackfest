@@ -1,6 +1,7 @@
 import './App.css';
 import { useState, useEffect } from 'react';
 import axios from "axios"
+import calculateDownloadScore from './utils/downloadScore';
 
 
 
@@ -10,6 +11,7 @@ function App() {
   const [pkg, setPkg] = useState("");
   const [pkgSuggestions, setPkgSuggestions] = useState([]);
   const [pkgMetadata, setPkgMetadata] = useState();
+  const [downloadScore, setDownloadScore] = useState(0);
 
   const handleScanSubmit = async (e) => {
     e.preventDefault();
@@ -17,8 +19,20 @@ function App() {
     const res = await fetch(endpoint);
     const data = await res.json();
     setPkgMetadata(data);
-    let response = await axios.post("http://localhost:3000/", { pkg: pkg, repository: data?.repository })
-    console.log(response);
+    let securityAdvisoriesRes = await axios.post("http://localhost:3000/security-advisories", { pkg: pkg, repository: data?.repository });
+    let qualityRes = await axios.post("http://localhost:3000/quality", { pkg: pkg, repository: data?.repository });
+    let date = new Date();
+    let downloadsRes = await axios.get(`https://api.npmjs.org/downloads/range/${date.getFullYear() - 1}-${date.getMonth()}-${date.getDate()}:${date.getFullYear()}-${date.getMonth()}-${date.getDate()}/${pkg}`)
+    let dailyDownloads = downloadsRes.data.downloads;
+
+    setDownloadScore(calculateDownloadScore(dailyDownloads));
+
+
+
+
+
+    // console.log(securityAdvisoriesRes, qualityRes, dailyDownloads);
+
   }
   const handleInputChange = async (e) => {
     e.preventDefault();
@@ -62,6 +76,9 @@ function App() {
         <div style={{ textAlign: "left" }}>{pkgMetadata?.description}</div>
       </div>
       }
+
+      <h1>Download Score: {downloadScore}/10</h1>
+
     </div>
   );
 }

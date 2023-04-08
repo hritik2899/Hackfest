@@ -1,6 +1,7 @@
 var express = require('express');
 let { Octokit } = require('octokit')
 var router = express.Router();
+const axios = require('axios');
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
@@ -34,6 +35,60 @@ router.post('/', async function (req, res, next) {
     })
   });
 });
+
+router.post('/quality', function (req, res, next) {
+  // Get the package name from the request body
+  const packageName = req.body.packageName;
+
+  // Make API request to npms.io
+  axios.get(`https://api.npms.io/v2/package/react`)
+    .then(response => {
+      // Extract the score data from the API response
+      const { score } = response.data;
+      // score*=100;
+
+      // Send the score data as the response
+      res.send({ scan_report: score });
+    })
+    .catch(error => {
+      // Handle any errors that occur during the API request
+      console.error(`Failed to fetch score data from npms.io: ${error}`);
+      res.status(500).send({ error: 'Failed to fetch score data from npms.io' });
+    });
+
+  //  // Get the package name from the request body
+  //  const packageName = req.body.packageName;
+
+  //  // Make API requests to npms.io and Snyk API concurrently using Promise.all
+  //  Promise.all([
+  //    axios.get(`https://api.npms.io/v2/package/react`),
+  //    axios.get(`https://snyk.io/api/v1/test/npm/react`)
+  //  ])
+  //    .then(([npmsResponse, snykResponse]) => {
+  //      // Extract the score data from npms.io API response and convert to percentage
+  //      const { score } = npmsResponse.data;
+ 
+  //      // Extract the vulnerabilities data from Snyk API response
+  //      const vulnerabilities = snykResponse.data.vulnerabilities;
+ 
+  //      // Create an object to hold the combined data
+  //      const scanReport = {
+  //        score: score,
+  //        vulnerabilities
+  //      };
+ 
+  //      // Send the combined data as the response
+  //      res.send({ scan_report: scanReport });
+  //    })
+  //    .catch(error => {
+  //      // Handle any errors that occur during the API requests
+  //      console.error(`Failed to fetch data from APIs: ${error}`);
+  //      res.status(500).send({ error: 'Failed to fetch data from APIs' });
+  //    });
+
+});
+
+
 
 
 module.exports = router;

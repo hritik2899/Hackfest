@@ -14,6 +14,7 @@ function App() {
   const [downloadScore, setDownloadScore] = useState(0);
   const [qualityScore, setQualityScore] = useState({});
   const [issueScore, setIssueScore] = useState();
+  const [safelinkScore, setSafelinkScore] = useState();
 
   const handleScanSubmit = async (e) => {
     e.preventDefault();
@@ -33,6 +34,9 @@ function App() {
     setDownloadScore(calculateDownloadScore(dailyDownloads));
     let issueAnalysisRes = await axios.post("http://localhost:3000/issue-analysis", { pkg: pkg, repository: data?.repository });
     setIssueScore(issueAnalysisRes.data.score);
+    let safeLinkRes = await axios.post("http://localhost:3000/safelink-analysis", { pkg: pkg, repository: data?.repository });
+    console.log(safeLinkRes);
+
 
 
 
@@ -84,9 +88,9 @@ function App() {
 
       <h1>Download Score: {downloadScore}/10</h1>
       <h1>Issue & PR analysis: {issueScore}/10</h1>
-      <h1>Maintainance: {Number(qualityScore.detail.maintenance) * 10}/10</h1>
-      <h1>Popularity: {Number(qualityScore.detail.popularity) * 10}/10</h1>
-      <h1>Quality: {Number(qualityScore.detail.quality) * 10}/10</h1>
+      <h1>Maintainance: {Number(qualityScore?.detail?.maintenance) * 10}/10</h1>
+      <h1>Popularity: {Number(qualityScore?.detail?.popularity) * 10}/10</h1>
+      <h1>Quality: {Number(qualityScore?.detail?.quality) * 10}/10</h1>
 
 
 

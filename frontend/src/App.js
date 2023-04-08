@@ -2,19 +2,23 @@ import './App.css';
 import { useState, useEffect } from 'react';
 import axios from "axios"
 
+
+
+
 function App() {
 
   const [pkg, setPkg] = useState("");
   const [pkgSuggestions, setPkgSuggestions] = useState([]);
+  const [pkgMetadata, setPkgMetadata] = useState();
 
   const handleScanSubmit = async (e) => {
     e.preventDefault();
     const endpoint = `https://registry.npmjs.org/${pkg}`;
     const res = await fetch(endpoint);
     const data = await res.json();
-    console.log(data);
-    // let res = await axios.post("http://localhost:3000/", { pkg: pkg })
-    // console.log(res);
+    setPkgMetadata(data);
+    let response = await axios.post("http://localhost:3000/", { pkg: pkg, repository: data?.repository })
+    console.log(response);
   }
   const handleInputChange = async (e) => {
     e.preventDefault();
@@ -51,10 +55,13 @@ function App() {
           </div>
           <button type="submit">Scan</button>
         </form>
-
-
-
       </div>
+      {pkgMetadata && <div>
+        <h1 style={{ textAlign: "left" }}>{pkgMetadata?.name}</h1>
+        <h2 style={{ textAlign: "left" }}>Author: {pkgMetadata?.author.name}</h2>
+        <div style={{ textAlign: "left" }}>{pkgMetadata?.description}</div>
+      </div>
+      }
     </div>
   );
 }

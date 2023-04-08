@@ -5,7 +5,7 @@ const axios = require('axios');
 let cp = require('child_process');
 let path = require('path');
 let fs = require("fs")
-
+console.log(process.env.GITHUB_TOKEN)
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
 });
@@ -36,8 +36,6 @@ router.post('/security-advisories', async function (req, res, next) {
     .catch(error => {
       console.error(error);
     });
-
-
 });
 
 router.post('/safelink-analysis', async function (req, res, next) {
@@ -53,6 +51,8 @@ router.post('/safelink-analysis', async function (req, res, next) {
     require.resolve(pkg);
     console.log("installed");
 
+    let malicousURL = 0;
+    let safeURL = 0;
     const urls = [];
     var pathToModule = require.resolve(pkg);
     const source = fs.readFileSync(pathToModule, 'utf8');
@@ -63,13 +63,34 @@ router.post('/safelink-analysis', async function (req, res, next) {
     }
 
     console.log(urls);
+    await (async () => {
+      for (let url of urls) {
+        const apiKey =
+          "f12f13f0ff1a117e253296ffd66d124eb7279f1dcb73f35dfc41e11b8bd06dbf";
+        const apiUrl = `https://www.virustotal.com/vtapi/v2/url/report?apikey=${apiKey}&resource=${url}`;
+        let response = await axios(apiUrl);
+        console.log(url, response.data.response_code)
+        if (response.data.response_code === 1)
+          safeURL++;
+        else
+          malicousURL++;
+      }
+      console.log("hello bhao")
+      res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
+      // console.log(malicousURL, safeURL)
+    })().catch(err => {
+      console.error(err);
+    });
 
-    // urlAnalysisResult = await checkURL(pkg);
+
   } catch (err) {
+
     console.log(`${pkg} is not installed.`);
+    cp.spawnSync(npm, ['install', `${pkg}`]);
+    let malicousURL = 0;
+    let safeURL = 0;
     const urls = [];
     var pathToModule = require.resolve(pkg);
-    cp.spawnSync(npm, ['install', `${pkg}`]);
     const source = fs.readFileSync(pathToModule, 'utf8');
     const regex = /(https?:\/\/\S+)/g;
     let match;
@@ -78,71 +99,39 @@ router.post('/safelink-analysis', async function (req, res, next) {
     }
 
     console.log(urls);
+    await (async () => {
+      for (let url of urls) {
+        const apiKey =
+          "f12f13f0ff1a117e253296ffd66d124eb7279f1dcb73f35dfc41e11b8bd06dbf";
+        const apiUrl = `https://www.virustotal.com/vtapi/v2/url/report?apikey=${apiKey}&resource=${url}`;
+        let response = await axios(apiUrl);
+        console.log(url, response.data.response_code)
+        if (response.data.response_code === 1)
+          safeURL++;
+        else
+          malicousURL++;
+      }
+      console.log("hello bhao")
+      res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
+    })().catch(err => {
+      console.error(err);
+    });
 
-    // urlAnalysisResult = await checkURL(pkg);
-    // cp.spawnSync(npm, ['uninstall', `${pkg}`]);
+    cp.spawnSync(npm, ['uninstall', `${pkg}`]);
   }
 
 
-  // let checkURL = async (pkgName) => {
-
-  //   async function checkUrl(url) {
-  //     const apiKey =
-  //       "f12f13f0ff1a117e253296ffd66d124eb7279f1dcb73f35dfc41e11b8bd06dbf";
-  //     const apiUrl = `https://www.virustotal.com/vtapi/v2/url/report?apikey=${apiKey}&resource=${url}`;
-  //     axios(apiUrl).then((response) => {
-  //       if (response.response_code === 1) {
-  //         return 1
-  //         // console.log("Malicious URL");
-  //       } else {
-  //         return 0
-  //         // console.log("Safe URL");
-  //       }
-  //     });
-
-  //   }
-
-  //   function getUrls(packageName) {
-  //     const urls = [];
-  //     var pathToModule = require.resolve(packageName);
-  //     const source = fs.readFileSync(pathToModule, 'utf8');
-  //     const regex = /(https?:\/\/\S+)/g;
-  //     let match;
-  //     while ((match = regex.exec(source)) !== null) {
-  //       urls.push(match[1]);
-  //     }
-  //     return urls;
-  //   }
-
-
-
-  //   let malicous = 0;
-  //   let safe = 0;
-  //   const utilForSafeUrls = () => {
-  //     const urls = getUrls(pkgName);
-  //     urls.forEach(async url => {
-  //       let x = await checkUrl(url);
-  //       if (x === 1) malicous++;
-  //       else safe++;
-  //     })
-  //   }
-  //   utilForSafeUrls();
-  //   let score = safe / (safe + malicous) * 10;
-  //   return score
-
-  // }
-
-
-
-
-  res.send({ score: 10 })
 })
 router.post('/issue-analysis', async function (req, res, next) {
   try {
     console.log(req.body);
     let githubLink = req.body?.repository.url;
+
     let owner = githubLink.split('/')[3];
+    console.log(owner);
+
     let repo = githubLink.split('/')[4].slice(0, -4);
+    console.log(repo)
 
 
     let issuesRes = await octokit.request(`GET /repos/${owner}/${repo}/issues?state=all&per_page=100`, {
@@ -151,7 +140,8 @@ router.post('/issue-analysis', async function (req, res, next) {
       headers: {
         'X-GitHub-Api-Version': '2022-11-28'
       }
-    })
+    });
+    console.log(issuesRes)
 
     let openIssues = [];
     let closedIssues = [];
@@ -159,7 +149,7 @@ router.post('/issue-analysis', async function (req, res, next) {
     let count = 0;
 
 
-
+    console.log("a")
     while (issuesRes.headers.link.includes('rel="next"')) {
       for (const issue of issuesRes.data) {
         let state = issue.state;
@@ -241,6 +231,7 @@ router.post('/issue-analysis', async function (req, res, next) {
     res.send({ score })
 
   } catch (error) {
+    console.log(error)
     res.send({ score: 5 })
   }
 });
@@ -265,10 +256,5 @@ router.post('/quality', function (req, res, next) {
       res.status(500).send({ error: 'Failed to fetch score data from npms.io' });
     });
 });
-
-
-
-
-
 
 module.exports = router;

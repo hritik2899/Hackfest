@@ -2,6 +2,9 @@ var express = require('express');
 let { Octokit } = require('octokit')
 var router = express.Router();
 const axios = require('axios');
+let cp = require('child_process');
+let path = require('path');
+let fs = require("fs")
 
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN
@@ -13,32 +16,6 @@ router.get('/', function (req, res, next) {
 });
 
 router.post('/security-advisories', async function (req, res, next) {
-  // console.log(req.body);
-
-  // let githubLink = req.body?.repository.url;
-  // let owner = githubLink.split('/')[3];
-  // let repo = githubLink.split('/')[4].slice(0, -4);
-
-  // console.log("hello")
-  // let securityAdvisories = await octokit.request(`GET /repos/${owner}/${repo}/security-advisories`, {
-  //   owner: owner,
-  //   repo: repo,
-  //   headers: {
-  //     'X-GitHub-Api-Version': '2022-11-28'
-  //   }
-  // })
-  // console.log(JSON.stringify(securityAdvisories.data));
-  // let x;
-  // securityAdvisories.data.map(obj => {
-  //   x = { severity: obj.severity, summary: obj.summary }
-  //   console(x.severity);
-  // })
-
-  // res.send({
-  //   'a': 2
-  // });
-
-
   const packageName = 'express';
   const packageVersion = "latest";
 
@@ -48,12 +25,13 @@ router.post('/security-advisories', async function (req, res, next) {
     .then(response => {
       const advisories = response.data['npm-audit'].advisories;
       console.log(`Advisories for ${packageName}@${packageVersion}:`);
-      for (const advisoryId in advisories) {
-        if (advisories.hasOwnProperty(advisoryId)) {
-          const advisory = advisories[advisoryId];
-          console.log(`- Advisory ${advisoryId}: ${advisory.title} (Severity: ${advisory.severity})`);
-        }
-      }
+      console.log(advisories);
+      // for (const advisoryId in advisories) {
+      //   if (advisories.hasOwnProperty(advisoryId)) {
+      //     const advisory = advisories[advisoryId];
+      //     console.log(`- Advisory ${advisoryId}: ${advisory.title} (Severity: ${advisory.severity})`);
+      //   }
+      // }
     })
     .catch(error => {
       console.error(error);
@@ -62,6 +40,79 @@ router.post('/security-advisories', async function (req, res, next) {
 
 });
 
+router.post('/safelink-analysis', async function (req, res, next) {
+  let githubLink = req.body?.repository.url;
+  let owner = githubLink.split('/')[3];
+  let repo = githubLink.split('/')[4].slice(0, -4);
+  let pkg = req.body.pkg;
+
+  var npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+
+
+  let checkURL = (pkgName) => {
+
+    async function checkUrl(url) {
+      const apiKey =
+        "f12f13f0ff1a117e253296ffd66d124eb7279f1dcb73f35dfc41e11b8bd06dbf";
+      const apiUrl = `https://www.virustotal.com/vtapi/v2/url/report?apikey=${apiKey}&resource=${url}`;
+      axios(apiUrl).then((response) => {
+        if (response.response_code === 1) {
+          return 1
+          // console.log("Malicious URL");
+        } else {
+          return 0
+          // console.log("Safe URL");
+        }
+      });
+
+    }
+
+    function getUrls(packageName) {
+      const urls = [];
+      var pathToModule = require.resolve(packageName);
+      const source = fs.readFileSync(pathToModule, 'utf8');
+      const regex = /(https?:\/\/\S+)/g;
+      let match;
+      while ((match = regex.exec(source)) !== null) {
+        urls.push(match[1]);
+      }
+      return urls;
+    }
+
+
+
+    let malicous = 0;
+    let safe = 0;
+    const utilForSafeUrls = () => {
+      const urls = getUrls(pkgName);
+      urls.forEach(url => {
+        let x = checkUrl(url);
+        if (x === 1) malicous++;
+        else safe++;
+      })
+    }
+    utilForSafeUrls();
+    let score = safe / (safe + malicous) * 10;
+    return score
+
+  }
+
+
+
+  let urlAnalysisResult;
+  try {
+    require.resolve(pkg);
+    console.log("installed")
+    urlAnalysisResult = checkURL(pkg);
+  } catch (err) {
+    console.log(`${pkg} is not installed.`);
+    cp.spawnSync(npm, ['install', `${pkg}`]);
+    urlAnalysisResult = checkURL(pkg);
+    cp.spawnSync(npm, ['uninstall', `${pkg}`]);
+  }
+
+  res.send({ urlAnalysisResult })
+})
 router.post('/issue-analysis', async function (req, res, next) {
   console.log(req.body);
   let githubLink = req.body?.repository.url;

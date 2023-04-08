@@ -13,31 +13,53 @@ router.get('/', function (req, res, next) {
 });
 
 router.post('/security-advisories', async function (req, res, next) {
-  console.log(req.body);
-  try {
-    let githubLink = req.body?.repository.url;
-    let owner = githubLink.split('/')[3];
-    let repo = githubLink.split('/')[4].slice(0, -4);
+  // console.log(req.body);
 
-    console.log("hello")
-    let securityAdvisories = await octokit.request(`GET /repos/${owner}/${repo}/security-advisories`, {
-      owner: owner,
-      repo: repo,
-      headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
+  // let githubLink = req.body?.repository.url;
+  // let owner = githubLink.split('/')[3];
+  // let repo = githubLink.split('/')[4].slice(0, -4);
+
+  // console.log("hello")
+  // let securityAdvisories = await octokit.request(`GET /repos/${owner}/${repo}/security-advisories`, {
+  //   owner: owner,
+  //   repo: repo,
+  //   headers: {
+  //     'X-GitHub-Api-Version': '2022-11-28'
+  //   }
+  // })
+  // console.log(JSON.stringify(securityAdvisories.data));
+  // let x;
+  // securityAdvisories.data.map(obj => {
+  //   x = { severity: obj.severity, summary: obj.summary }
+  //   console(x.severity);
+  // })
+
+  // res.send({
+  //   'a': 2
+  // });
+
+
+  const packageName = 'express';
+  const packageVersion = "latest";
+
+  const url = `https://registry.npmjs.org/${packageName}/${packageVersion}`;
+
+  axios.get(url)
+    .then(response => {
+      const advisories = response.data['npm-audit'].advisories;
+      console.log(`Advisories for ${packageName}@${packageVersion}:`);
+      for (const advisoryId in advisories) {
+        if (advisories.hasOwnProperty(advisoryId)) {
+          const advisory = advisories[advisoryId];
+          console.log(`- Advisory ${advisoryId}: ${advisory.title} (Severity: ${advisory.severity})`);
+        }
       }
     })
-    console.log(JSON.stringify(securityAdvisories.data));
-
-
-    res.send({
-      securityAdvisories: securityAdvisories.data.map(obj => {
-        return { severity: obj.severity, summary: obj.summary }
-      })
+    .catch(error => {
+      console.error(error);
     });
-  } catch (error) {
-    res.status(401).send({ message: "Record Not Found" })
-  }
+
+
 });
 
 router.post('/issue-analysis', async function (req, res, next) {
@@ -57,11 +79,9 @@ router.post('/issue-analysis', async function (req, res, next) {
 
   let openIssues = [];
   let closedIssues = [];
-  // res.send(issuesRes.data);
 
-
+  let count = 0;
   while (issuesRes.headers.link.includes('rel="next"')) {
-
     for (const issue of issuesRes.data) {
       let state = issue.state;
       let id = issue.id;
@@ -80,9 +100,66 @@ router.post('/issue-analysis', async function (req, res, next) {
       }
       console.log(state, diff)
     }
+    count++;
+    if (count === 10)
+      break;
   }
+  let timeOf1Day = new Date('2023-03-10').getTime() - new Date('2023-03-09').getTime();
 
-  res.send({ issues: { openIssues, closedIssues } })
+  let score = 5; let vount = 0;
+
+  // openIssues.sort((a, b) => a.diff < b.diff);
+  // let medianDiff = openIssues[(openIssues.length / 2)].diff
+
+  openIssues.forEach((issue) => {
+    if (issue.diff <= timeOf1Day * 15) {
+      score += 0; count++;
+    }
+
+    else if (issue.diff <= timeOf1Day * 45)
+      score += 7.5;
+
+    else if (issue.diff <= timeOf1Day * 90) {
+      score += 4.5
+    }
+
+    else if (issue.diff <= timeOf1Day * 150)
+      score += 3;
+
+    else if (issue.diff <= timeOf1Day * 210)
+      score += 1;
+
+  })
+
+  closedIssues.forEach((issue) => {
+    if (issue.diff <= timeOf1Day * 15) {
+      score += 10;
+    }
+
+    else if (issue.diff <= timeOf1Day * 30)
+      score += 9;
+
+    else if (issue.diff <= timeOf1Day * 60) {
+      score += 7;
+    }
+
+    else if (issue.diff <= timeOf1Day * 90)
+      score += 6;
+
+    else if (issue.diff <= timeOf1Day * 150)
+      score += 5;
+
+    else if (issue.diff <= timeOf1Day * 150) score += 4;
+    else score += 2;
+
+  })
+
+  count = closedIssues.length + openIssues.length - count + 1;
+
+  score = score / count;
+  console.log(score);
+
+  res.send({ score })
 });
 
 router.post('/quality', function (req, res, next) {
@@ -97,7 +174,7 @@ router.post('/quality', function (req, res, next) {
       // score*=100;
 
       // Send the score data as the response
-      res.send({ scan_report: score });
+      res.send({ quality_report: score });
     })
     .catch(error => {
       // Handle any errors that occur during the API request
@@ -105,6 +182,8 @@ router.post('/quality', function (req, res, next) {
       res.status(500).send({ error: 'Failed to fetch score data from npms.io' });
     });
 });
+
+
 
 
 

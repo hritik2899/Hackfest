@@ -60,15 +60,24 @@ function App() {
 
     let finalScoreUtil = 0;
     finalScoreUtil += 0.15 * calculateDownloadScore(dailyDownloads);
+    console.log(finalScoreUtil);
     finalScoreUtil += 0.20 * securityAdvisoriesRes.data.score;
-    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.maintenance
-    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.popularity
-    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.quality
-    finalScoreUtil += 0.10 * issueAnalysisRes.data.score
-    finalScoreUtil += 0.15 * safeLinkRes.data.score
-    finalScoreUtil += 0.15 * communityMetricRes.data.score
-    finalScoreUtil += 0.10 * commitFrequencyRes.data.score
+    console.log(finalScoreUtil);
 
+    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.maintenance * 10
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.popularity * 10
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.05 * qualityRes.data.quality_report.detail.quality * 10
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.10 * issueAnalysisRes.data.score
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.15 * safeLinkRes.data.score
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.15 * communityMetricRes.data.score
+    console.log(finalScoreUtil);
+    finalScoreUtil += 0.10 * commitFrequencyRes.data.score
+    console.log(finalScoreUtil);
 
     setFinalScore(finalScoreUtil)
     setScanning(true);

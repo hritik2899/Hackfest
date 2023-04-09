@@ -17,27 +17,46 @@ router.get("/", function (req, res, next) {
 });
 
 router.post("/security-advisories", async function (req, res, next) {
-  const packageName = "express";
-  const packageVersion = "latest";
+  let githubLink = req.body.repository.url;
+  let owner = githubLink.split('/')[3];
+  let repo = githubLink.split('/')[4].slice(0, -4);
 
-  const url = `https://registry.npmjs.org/${packageName}/${packageVersion}`;
+  let securityAdvisories = await octokit.request(`GET /repos/${owner}/${repo}/security-advisories`, {
+    owner: owner,
+    repo: repo,
+    headers: {
+      'X-GitHub-Api-Version': '2022-11-28'
+    }
+  })
+  console.log(JSON.stringify(securityAdvisories.data));
 
-  axios
-    .get(url)
-    .then((response) => {
-      const advisories = response.data["npm-audit"].advisories;
-      console.log(`Advisories for ${packageName}@${packageVersion}:`);
-      console.log(advisories);
-      // for (const advisoryId in advisories) {
-      //   if (advisories.hasOwnProperty(advisoryId)) {
-      //     const advisory = advisories[advisoryId];
-      //     console.log(`- Advisory ${advisoryId}: ${advisory.title} (Severity: ${advisory.severity})`);
-      //   }
-      // }
-    })
-    .catch((error) => {
-      console.error(error);
+  let x = [];
+  let totalScore = 0;
+  let score = 0;
+  if (securityAdvisories.data.length !== 0) {
+    securityAdvisories.data.map(({ severity }) => {
+      if (severity === 'critical') {
+        totalScore += 1
+
+      } else if (severity === 'high') {
+        totalScore += 3
+
+      } else if (severity === 'medium') {
+        totalScore += 6
+
+      } else if (severity === 'low') {
+        totalScore += 9
+
+      } else if (severity === null) {
+        totalScore += 5
+      }
     });
+    score = totalScore / securityAdvisories?.data?.length;
+
+  } else {
+    score = 10
+  }
+  res.send({ score: score });
 });
 
 router.post("/community-metrics", async function (req, res, next) {
@@ -54,8 +73,8 @@ router.post("/community-metrics", async function (req, res, next) {
       'X-GitHub-Api-Version': '2022-11-28'
     }
   })
-console.log(communityMetricsRes.data.health_percentage);
-  res.send({score :communityMetricsRes.data.health_percentage });
+  console.log(communityMetricsRes.data.health_percentage);
+  res.send({ score: communityMetricsRes.data.health_percentage });
 
 });
 
@@ -100,7 +119,6 @@ router.post("/safelink-analysis", async function (req, res, next) {
       }
       console.log("hello bhao")
       res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
-      // console.log(malicousURL, safeURL)
     })().catch(err => {
       console.error(err);
     });
@@ -135,12 +153,13 @@ router.post("/safelink-analysis", async function (req, res, next) {
           malicousURL++;
       }
       console.log("hello bhao")
-      res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
     })().catch(err => {
       console.error(err);
     });
 
     cp.spawnSync(npm, ['uninstall', `${pkg}`]);
+    res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
+
   }
 
 
@@ -172,7 +191,6 @@ router.post('/issue-analysis', async function (req, res, next) {
     let count = 0;
 
 
-    console.log("a")
     while (issuesRes.headers.link.includes('rel="next"')) {
       for (const issue of issuesRes.data) {
         let state = issue.state;

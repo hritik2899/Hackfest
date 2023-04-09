@@ -6,6 +6,7 @@ let cp = require('child_process');
 let path = require('path');
 let fs = require("fs")
 
+
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
 });
@@ -40,84 +41,25 @@ router.post("/security-advisories", async function (req, res, next) {
 });
 
 router.post("/community-metrics", async function (req, res, next) {
-  // Octokit.js
-  
-  // const owner = 'axios';
-  // const repo = 'axios';
 
-  // const community = await octokit.request(
-  //   `GET /repos/${owner}/${repo}/community/profile`,
-  //   {
-  //     owner: "axios",
-  //     repo: "axios",
-  //     headers: {
-  //       "X-GitHub-Api-Version": "2022-11-28",
-  //     },
-  //   }
-  // );
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/community`;
+  let githubLink = req.body?.repository.url;
+  let owner = githubLink.split("/")[3];
+  let repo = githubLink.split("/")[4].slice(0, -4);
+  let pkg = req.body.pkg;
 
-// Set headers for authorization
-const headers = {
-  'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-  'Accept': 'application/vnd.github+json'
-};
-
-// Fetch community metrics
-axios.get(apiUrl, { headers })
-  .then(response => {
-    console.log('Community Metrics:', response.data);
-    res.send({response})
-  })
-  .catch(error => {
-    console.error('Error fetching community metrics:', error);
-    res.send({a:6})
-  });
-});
-
-router.post("/contributors", async function (req, res, next) {
-  const owner = "axios";
-  const repo = "axios";
-  const contri = await octokit.request(
-    `GET /repos/${owner}/${repo}/collaborators`,
-    {
-      owner: "axios",
-      repo: "axios",
-      headers: {
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
+  let communityMetricsRes = await octokit.request(`GET /repos/${owner}/${repo}/community/profile`, {
+    owner: owner,
+    repo: repo,
+    headers: {
+      'X-GitHub-Api-Version': '2022-11-28'
     }
-  );
+  })
+console.log(communityMetricsRes.data.health_percentage);
+  res.send({score :communityMetricsRes.data.health_percentage });
 
-  console.log(contri);
-
-  // Define the GitHub repository owner and name you want to retrieve users from
-
-  // Define the GitHub API endpoint for retrieving repository contributors
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contributors`;
-
-  // Fetch the repository contributors from the GitHub API using Axios
-  axios
-    .get(apiUrl)
-    .then((response) => {
-      // Extract the user information from the contributors data
-      const users = response.data.map((contributor) => {
-        return {
-          login: contributor.login,
-          contributions: contributor.contributions,
-        };
-      });
-
-      // Log the user information
-      console.log(`Contributors to GitHub repository "${owner}/${repo}":`);
-      console.log(users);
-      res.send({ users });
-    })
-    .catch((error) => {
-      console.error(error);
-      res.send({ a: 5 });
-    });
 });
+
+
 
 router.post("/safelink-analysis", async function (req, res, next) {
   let githubLink = req.body?.repository.url;

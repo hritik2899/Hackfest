@@ -74,11 +74,82 @@ router.post("/community-metrics", async function (req, res, next) {
     }
   })
   console.log(communityMetricsRes.data.health_percentage);
-  res.send({ score: communityMetricsRes.data.health_percentage });
+  res.send({ score: communityMetricsRes.data.health_percentage / 10 });
 
 });
 
+router.post("/frequencyanalysis", async function (req, res, next) {
+  let githubLink = req.body?.repository.url;
+  let owner = githubLink.split("/")[3];
+  let repo = githubLink.split("/")[4].slice(0, -4);
+  let pkg = req.body.pkg;
 
+  let lastCommit = await octokit.request(
+    `GET /repos/${owner}/${repo}/commits?per_page=1`,
+    {
+      owner: owner,
+      repo: repo,
+      headers: {
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    }
+  );
+  const x = 86400000;
+  let score1 = 5;
+  try {
+    const commit = lastCommit.data[0]; // Get the latest commit from the response
+    const commitTime = new Date(commit.commit.author.date?.slice(0, 10)).getTime(); // Get the commit time
+    const curDate = new Date().getTime();
+
+    const diff = curDate - commitTime;
+
+    if (diff <= 15 * x) score1 = 9;
+    else if (diff <= 35 * x) score1 = 8;
+    else if (diff <= 60 * x) score1 = 7;
+    else if (diff <= 120 * x) score1 = 6;
+    else if (diff <= 150 * x) score1 = 5;
+    else {
+      score1 = 2;
+    }
+
+    console.log(`Latest commit time: ${commitTime}`);
+  } catch {
+    (error) => {
+      console.error("Error fetching commit time:", error);
+    };
+  }
+  // axios.get(`https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=1
+  let lastPull = await octokit.request(
+    `GET /repos/${owner}/${repo}/pulls?state=all&per_page=1`,
+    {
+      owner: owner,
+      repo: repo,
+      headers: {
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    }
+  );
+  let score2 = 5;
+  try {
+    const pullRequest = lastPull.data[0]; // Get the latest pull request from the response
+    const pullRequestTime = new Date(pullRequest.updated_at?.slice(0, 10))
+      .getTime(); // Get the pull request time
+    const curDate = new Date().getTime();
+    console.log(`Latest pull request time: ${pullRequestTime}`);
+    let diff = curDate - pullRequestTime;
+    if (diff <= 15 * x) score2 = 9;
+    else if (diff <= 35 * x) score2 = 8;
+    else if (diff <= 60 * x) score2 = 7;
+    else if (diff <= 120 * x) score2 = 6;
+    else if (diff <= 150 * x) score2 = 5;
+    else {
+      score2 = 2;
+    }
+  } catch {
+    console.error("Error fetching pull request time:", error);
+  }
+  res.send({ score: (score1 + score2) / 2 });
+});
 
 router.post("/safelink-analysis", async function (req, res, next) {
   let githubLink = req.body?.repository.url;
@@ -98,11 +169,13 @@ router.post("/safelink-analysis", async function (req, res, next) {
     const urls = [];
     var pathToModule = require.resolve(pkg);
     const source = fs.readFileSync(pathToModule, "utf8");
-    const regex = /(https?:\/\/\S+)/g;
+    const regex = /(https?:\/\/[^ ]*)/g;
     let match;
     while ((match = regex.exec(source)) !== null) {
       urls.push(match[1]);
+      console.log(match[1])
     }
+
 
     console.log(urls);
     await (async () => {
@@ -117,8 +190,10 @@ router.post("/safelink-analysis", async function (req, res, next) {
         else
           malicousURL++;
       }
-      console.log("hello bhao")
-      res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
+      if (!urls.length)
+        res.send({ score: 8.3 })
+      else
+        res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
     })().catch(err => {
       console.error(err);
     });
@@ -140,6 +215,7 @@ router.post("/safelink-analysis", async function (req, res, next) {
     }
 
     console.log(urls);
+
     await (async () => {
       for (let url of urls) {
         const apiKey =
@@ -158,7 +234,10 @@ router.post("/safelink-analysis", async function (req, res, next) {
     });
 
     cp.spawnSync(npm, ['uninstall', `${pkg}`]);
-    res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
+    if (!urls.length)
+      res.send({ score: 8.3 })
+    else
+      res.send({ score: safeURL / (malicousURL + safeURL) * 10 })
 
   }
 

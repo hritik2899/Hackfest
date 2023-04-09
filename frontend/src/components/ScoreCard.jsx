@@ -1,7 +1,6 @@
 import React from 'react'
 
 const ScoreCard = ({ value, label }) => {
-     console.log(value);
      return (
           <div style={{ height: "200px", width: "200px" }}>
                <svg viewBox="0 0 36 36" className="circular-chart">
